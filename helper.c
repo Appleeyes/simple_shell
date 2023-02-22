@@ -1,57 +1,74 @@
 #include "main.h"
 
 /**
- * free_recurrent_data - free the fields needed each loop
- * @data: struct of the program's data
- * Return: Nothing
+ **_strncpy - copies a string
+ *@dest: the destination string to be copied to
+ *@src: the source string
+ *@n: the amount of characters to be copied
+ *Return: the concatenated string
  */
-void free_recurrent_data(data_of_program *data)
+char *_strncpy(char *dest, char *src, int n)
 {
-	if (data->tokens)
-		free_array_of_pointers(data->tokens);
-	if (data->input_line)
-		free(data->input_line);
-	if (data->command_name)
-		free(data->command_name);
+	int i, j;
+	char *s = dest;
 
-	data->input_line = NULL;
-	data->command_name = NULL;
-	data->tokens = NULL;
+	i = 0;
+	while (src[i] != '\0' && i < n - 1)
+	{
+		dest[i] = src[i];
+		i++;
+	}
+	if (i < n)
+	{
+		j = i;
+		while (j < n)
+		{
+			dest[j] = '\0';
+			j++;
+		}
+	}
+	return (s);
 }
 
 /**
- * free_all_data - free all field of the data
- * @data: struct of the program's data
- * Return: Nothing
+ **_strncat - concatenates two strings
+ *@dest: the first string
+ *@src: the second string
+ *@n: the amount of bytes to be maximally used
+ *Return: the concatenated string
  */
-void free_all_data(data_of_program *data)
+char *_strncat(char *dest, char *src, int n)
 {
-	if (data->file_descriptor != 0)
+	int i, j;
+	char *s = dest;
+
+	i = 0;
+	j = 0;
+	while (dest[i] != '\0')
+		i++;
+	while (src[j] != '\0' && j < n)
 	{
-		if (close(data->file_descriptor))
-			perror(data->program_name);
+		dest[i] = src[j];
+		i++;
+		j++;
 	}
-	free_recurrent_data(data);
-	free_array_of_pointers(data->env);
-	free_array_of_pointers(data->alias_list);
+	if (j < n)
+		dest[i] = '\0';
+	return (s);
 }
 
 /**
- * free_array_of_pointers - frees each pointer of an array of pointers and the
- * array too
- * @array: array of pointers
- * Return: nothing
+ **_strchr - locates a character in a string
+ *@s: the string to be parsed
+ *@c: the character to look for
+ *Return: (s) a pointer to the memory area s
  */
-void free_array_of_pointers(char **array)
+char *_strchr(char *s, char c)
 {
-	int i;
+	do {
+		if (*s == c)
+			return (s);
+	} while (*s++ != '\0');
 
-	if (array != NULL)
-	{
-		for (i = 0; array[i]; i++)
-			free(array[i]);
-
-		free(array);
-		array = NULL;
-	}
+	return (NULL);
 }
