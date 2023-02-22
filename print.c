@@ -1,70 +1,85 @@
 #include "main.h"
 
 /**
- * _print - writes a array of chars in the standar output
- * @string: pointer to the array of chars
- * Return: the number of bytes writed or .
- * On error, -1 is returned, and errno is set appropriately.
+ *_eputs - prints an input string
+ * @str: the string to be printed
+ *
+ * Return: Nothing
  */
-int _print(char *string)
+void _eputs(char *str)
 {
-	return (write(STDOUT_FILENO, string, str_length(string)));
-}
-/**
- * _printe - writes a array of chars in the standar error
- * @string: pointer to the array of chars
- * Return: the number of bytes writed or .
- * On error, -1 is returned, and errno is set appropriately.
- */
-int _printe(char *string)
-{
-	return (write(STDERR_FILENO, string, str_length(string)));
+	int i = 0;
+
+	if (!str)
+		return;
+	while (str[i] != '\0')
+	{
+		_eputchar(str[i]);
+		i++;
+	}
 }
 
 /**
- * _print_error - writes a array of chars in the standart error
- * @data: a pointer to the program's data'
- * @errorcode: error code to print
- * Return: the number of bytes writed or .
+ * _eputchar - writes the character c to stderr
+ * @c: The character to print
+ *
+ * Return: On success 1.
  * On error, -1 is returned, and errno is set appropriately.
  */
-int _print_error(int errorcode, data_of_program *data)
+int _eputchar(char c)
 {
-	char n_as_string[10] = {'\0'};
+	static int i;
+	static char buf[WRITE_BUF_SIZE];
 
-	long_to_string((long) data->exec_counter, n_as_string, 10);
+	if (c == BUF_FLUSH || i >= WRITE_BUF_SIZE)
+	{
+		write(2, buf, i);
+		i = 0;
+	}
+	if (c != BUF_FLUSH)
+		buf[i++] = c;
+	return (1);
+}
 
-	if (errorcode == 2 || errorcode == 3)
+/**
+ * _putfd - writes the character c to given fd
+ * @c: The character to print
+ * @fd: The filedescriptor to write to
+ *
+ * Return: On success 1.
+ * On error, -1 is returned, and errno is set appropriately.
+ */
+int _putfd(char c, int fd)
+{
+	static int i;
+	static char buf[WRITE_BUF_SIZE];
+
+	if (c == BUF_FLUSH || i >= WRITE_BUF_SIZE)
 	{
-		_printe(data->program_name);
-		_printe(": ");
-		_printe(n_as_string);
-		_printe(": ");
-		_printe(data->tokens[0]);
-		if (errorcode == 2)
-			_printe(": Illegal number: ");
-		else
-			_printe(": can't cd to ");
-		_printe(data->tokens[1]);
-		_printe("\n");
+		write(fd, buf, i);
+		i = 0;
 	}
-	else if (errorcode == 127)
+	if (c != BUF_FLUSH)
+		buf[i++] = c;
+	return (1);
+}
+
+/**
+ *_putsfd - prints an input string
+ * @str: the string to be printed
+ * @fd: the filedescriptor to write to
+ *
+ * Return: the number of chars put
+ */
+int _putsfd(char *str, int fd)
+{
+	int i = 0;
+
+	if (!str)
+		return (0);
+	while (*str)
 	{
-		_printe(data->program_name);
-		_printe(": ");
-		_printe(n_as_string);
-		_printe(": ");
-		_printe(data->command_name);
-		_printe(": not found\n");
+		i += _putfd(*str++, fd);
 	}
-	else if (errorcode == 126)
-	{
-		_printe(data->program_name);
-		_printe(": ");
-		_printe(n_as_string);
-		_printe(": ");
-		_printe(data->command_name);
-		_printe(": Permission denied\n");
-	}
-	return (0);
+	return (i);
 }
