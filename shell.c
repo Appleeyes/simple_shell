@@ -1,120 +1,154 @@
 #include "main.h"
+
 /**
- * main - initialize the variables of the program
- * @argc: number of values received from the command line
- * @argv: values received from the command line
- * @env: number of values received from the command line
- * Return: zero on succes.
+ * is_chain - test if current char in buffer is a chain delimeter
+ * @info: the parameter struct
+ * @buf: the char buffer
+ * @p: address of current position in buf
+ *
+ * Return: 1 if chain delimeter, 0 otherwise
  */
-int main(int argc, char *argv[], char *env[])
+int is_chain(info_t *info, char *buf, size_t *p)
 {
-	data_of_program data_struct = {NULL}, *data = &data_struct;
-	char *prompt = "";
+	size_t j = *p;
 
-	inicialize_data(data, argc, argv, env);
-
-	signal(SIGINT, handle_ctrl_c);
-
-	if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && argc == 1)
-	{/* We are in the terminal, interactive mode */
-		errno = 2;/*???????*/
-		prompt = PROMPT_MSG;
+	if (buf[j] == '|' && buf[j + 1] == '|')
+	{
+		buf[j] = 0;
+		j++;
+		info->cmd_buf_type = CMD_OR;
 	}
-	errno = 0;
-	sisifo(prompt, data);
+	else if (buf[j] == '&' && buf[j + 1] == '&')
+	{
+		buf[j] = 0;
+		j++;
+		info->cmd_buf_type = CMD_AND;
+	}
+	else if (buf[j] == ';') /* found end of this command */
+	{
+		buf[j] = 0; /* replace semicolon with null */
+		info->cmd_buf_type = CMD_CHAIN;
+	}
+	else
+		return (0);
+	*p = j;
+	return (1);
+}
+
+/**
+ * check_chain - checks we should continue chaining based on last status
+ * @info: the parameter struct
+ * @buf: the char buffer
+ * @p: address of current position in buf
+ * @i: starting position in buf
+ * @len: length of buf
+ *
+ * Return: Void
+ */
+void check_chain(info_t *info, char *buf, size_t *p, size_t i, size_t len)
+{
+	size_t j = *p;
+
+	if (info->cmd_buf_type == CMD_AND)
+	{
+		if (info->status)
+		{
+			buf[i] = 0;
+			j = len;
+		}
+	}
+	if (info->cmd_buf_type == CMD_OR)
+	{
+		if (!info->status)
+		{
+			buf[i] = 0;
+			j = len;
+		}
+	}
+
+	*p = j;
+}
+
+/**
+ * replace_alias - replaces an aliases in the tokenized string
+ * @info: the parameter struct
+ *
+ * Return: 1 if replaced, 0 otherwise
+ */
+int replace_alias(info_t *info)
+{
+	int i;
+	list_t *node;
+	char *p;
+
+	for (i = 0; i < 10; i++)
+	{
+		node = node_starts_with(info->alias, info->argv[0], '=');
+		if (!node)
+			return (0);
+		free(info->argv[0]);
+		p = _strchr(node->str, '=');
+		if (!p)
+			return (0);
+		p = _strdup(p + 1);
+		if (!p)
+			return (0);
+		info->argv[0] = p;
+	}
+	return (1);
+}
+
+/**
+ * replace_vars - replaces vars in the tokenized string
+ * @info: the parameter struct
+ *
+ * Return: 1 if replaced, 0 otherwise
+ */
+int replace_vars(info_t *info)
+{
+	int i = 0;
+	list_t *node;
+
+	for (i = 0; info->argv[i]; i++)
+	{
+		if (info->argv[i][0] != '$' || !info->argv[i][1])
+			continue;
+
+		if (!_strcmp(info->argv[i], "$?"))
+		{
+			replace_string(&(info->argv[i]),
+				_strdup(convert_number(info->status, 10, 0)));
+			continue;
+		}
+		if (!_strcmp(info->argv[i], "$$"))
+		{
+			replace_string(&(info->argv[i]),
+				_strdup(convert_number(getpid(), 10, 0)));
+			continue;
+		}
+		node = node_starts_with(info->env, &info->argv[i][1], '=');
+		if (node)
+		{
+			replace_string(&(info->argv[i]),
+				_strdup(_strchr(node->str, '=') + 1));
+			continue;
+		}
+		replace_string(&info->argv[i], _strdup(""));
+
+	}
 	return (0);
 }
 
 /**
- * handle_ctrl_c - print the prompt in a new line
- * when the signal SIGINT (ctrl + c) is send to the program
- * @UNUSED: option of the prototype
+ * replace_string - replaces string
+ * @old: address of old string
+ * @new: new string
+ *
+ * Return: 1 if replaced, 0 otherwise
  */
-void handle_ctrl_c(int opr UNUSED)
+int replace_string(char **old, char *new)
 {
-	_print("\n");
-	_print(PROMPT_MSG);
-}
-
-/**
- * inicialize_data - inicialize the struct with the info of the program
- * @data: pointer to the structure of data
- * @argv: array of arguments pased to the program execution
- * @env: environ pased to the program execution
- * @argc: number of values received from the command line
- */
-void inicialize_data(data_of_program *data, int argc, char *argv[], char **env)
-{
-	int i = 0;
-
-	data->program_name = argv[0];
-	data->input_line = NULL;
-	data->command_name = NULL;
-	data->exec_counter = 0;
-	/* define the file descriptor to be readed*/
-	if (argc == 1)
-		data->file_descriptor = STDIN_FILENO;
-	else
-	{
-		data->file_descriptor = open(argv[1], O_RDONLY);
-		if (data->file_descriptor == -1)
-		{
-			_printe(data->program_name);
-			_printe(": 0: Can't open ");
-			_printe(argv[1]);
-			_printe("\n");
-			exit(127);
-		}
-	}
-	data->tokens = NULL;
-	data->env = malloc(sizeof(char *) * 50);
-	if (env)
-	{
-		for (; env[i]; i++)
-		{
-			data->env[i] = str_duplicate(env[i]);
-		}
-	}
-	data->env[i] = NULL;
-	env = data->env;
-
-	data->alias_list = malloc(sizeof(char *) * 20);
-	for (i = 0; i < 20; i++)
-	{
-		data->alias_list[i] = NULL;
-	}
-}
-/**
- * sisifo - its a infinite loop that shows the prompt
- * @prompt: prompt to be printed
- * @data: its a infinite loop that shows the prompt
- */
-void sisifo(char *prompt, data_of_program *data)
-{
-	int error_code = 0, string_len = 0;
-
-	while (++(data->exec_counter))
-	{
-		_print(prompt);
-		error_code = string_len = _getline(data);
-
-		if (error_code == EOF)
-		{
-			free_all_data(data);
-			exit(errno); /* if EOF is the fisrt Char of string, exit*/
-		}
-		if (string_len >= 1)
-		{
-			expand_alias(data);
-			expand_variables(data);
-			tokenize(data);
-			if (data->tokens[0])
-			{ /* if a text is given to prompt, execute */
-				error_code = execute(data);
-				if (error_code != 0)
-					_print_error(error_code, data);
-			}
-			free_recurrent_data(data);
-		}
-	}
+	free(*old);
+	*old = new;
+	return (1);
 }
